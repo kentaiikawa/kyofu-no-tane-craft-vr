@@ -1817,6 +1817,12 @@ function tick(){
 }
 renderer.setAnimationLoop(tick);
 window.__craft={go,story,camera,controls};
+// keep the page in the browser so it opens again without a network (GitHub Pages only)
+if('serviceWorker' in navigator && /github\.io$|^127\.0\.0\.1$|^localhost$/.test(location.hostname)){
+  navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{
+    if(!vrNote.hidden && vrBtn.getAttribute('aria-disabled')==='true') return;
+    vrNote.textContent='✔ このページはオフラインでも開けるよう、この端末に保存されました。'; vrNote.hidden=false; }).catch(()=>{});
+}
 })();
 </script>
 </body>
