@@ -42,6 +42,7 @@ h1 span{color:var(--red)}
 .card.mini h1,.card.mini .lede,.card.mini .kicker,.card.mini .note{display:none}
 .sub{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(110px + env(safe-area-inset-bottom,0px));z-index:4;width:min(44rem,calc(100% - 32px));margin:0;
   text-align:center;font-size:clamp(1rem,2.3vw,1.3rem);line-height:1.7;color:#fff;text-shadow:2px 2px 0 #000,0 0 6px #000;pointer-events:none;text-wrap:balance}
+.sub{line-height:2.1} .sub rt{font-size:.55em;color:#ffd98a;letter-spacing:0}
 @media (max-width:560px){ h1{font-size:36px} .lede{font-size:13px} }
 </style>
 </head>
@@ -1360,9 +1361,28 @@ instanced(chiliItems,new THREE.MeshLambertMaterial({map:TX.tint,emissive:0x22000
 /* ================= 恐怖の種: the story, staged in the dump beside the greenhouse ================= */
 const story=(function(){
 const CUE={starts:[2.5,6.21,14.55,23.2,28.59,37.76,49.75,59.02,68.04],durs:[1.21,6.34,6.85,3.79,7.98,7.48,7.08,5.52,7.26],total:82.3};
-const LINES=['恐怖の種。','ココは、規格外や作りすぎた農作物を捨てていた廃棄場。','ある日、廃棄された農作物の間から、見たことのない植物が生えてきました。','やがて、その植物は真っ赤な実をつけた。',
-  '見たことのない実だったが、それを見た人は何故か魅了されてしまい、思わず口にしてしまった。','しかしそれは、口にした人の理性を奪い、凶暴化させてしまう恐怖の実だった。',
-  '凶暴化した人は農場の人々を襲い、その後、何処かに消えてしまいました。','やがて廃棄場は、その植物に侵食されてしまいました。','これ以上の侵食、被害を防ぐために、中にある植物の根を切ってきてください。'];
+// [漢字|よみ] marks the reading shown above the kanji
+const LINES=['[恐怖|きょうふ]の[種|たね]。','ココは、[規格外|きかくがい]や[作|つく]りすぎた[農作物|のうさくもつ]を[捨|す]てていた[廃棄場|はいきじょう]。',
+  'ある[日|ひ]、[廃棄|はいき]された[農作物|のうさくもつ]の[間|あいだ]から、[見|み]たことのない[植物|しょくぶつ]が[生|は]えてきました。','やがて、その[植物|しょくぶつ]は[真|ま]っ[赤|か]な[実|み]をつけた。',
+  '[見|み]たことのない[実|み]だったが、それを[見|み]た[人|ひと]は[何故|なぜ]か[魅了|みりょう]されてしまい、[思|おも]わず[口|くち]にしてしまった。','しかしそれは、[口|くち]にした[人|ひと]の[理性|りせい]を[奪|うば]い、[凶暴化|きょうぼうか]させてしまう[恐怖|きょうふ]の[実|み]だった。',
+  '[凶暴化|きょうぼうか]した[人|ひと]は[農場|のうじょう]の[人々|ひとびと]を[襲|おそ]い、その[後|ご]、[何処|どこ]かに[消|き]えてしまいました。','やがて[廃棄場|はいきじょう]は、その[植物|しょくぶつ]に[侵食|しんしょく]されてしまいました。',
+  'これ[以上|いじょう]の[侵食|しんしょく]、[被害|ひがい]を[防|ふせ]ぐために、[中|なか]にある[植物|しょくぶつ]の[根|ね]を[切|き]ってきてください。'];
+// split a line into pieces: {b:'漢字', r:'よみ'} or {b:'かな'} (one character each, so lines can wrap there)
+function rubySegs(t){ const out=[]; const re=/\[([^|\]]+)\|([^\]]+)\]|([^\[])/g; let m; while((m=re.exec(t))) out.push(m[3]!==undefined?{b:m[3]}:{b:m[1],r:m[2]}); return out; }
+function rubyHTML(t){ return rubySegs(t).map(s=>s.r?'<ruby>'+s.b+'<rt>'+s.r+'</rt></ruby>':s.b).join(''); }
+// draw one ruby line centered at cx; base text sits on y (middle), readings above it
+function rubyLine(g,segs,cx,y,size,rsize,col,rcol){
+  g.font=size+'px '+FONT; const ws=segs.map(s=>{ const bw=g.measureText(s.b).width; if(!s.r) return bw; g.font=rsize+'px '+FONT; const rw=g.measureText(s.r).width; g.font=size+'px '+FONT; return Math.max(bw,rw); });
+  let x=cx-ws.reduce((a,b)=>a+b,0)/2;
+  segs.forEach((s,i)=>{ const mid=x+ws[i]/2; label(g,s.b,mid,y,size,col); if(s.r) label(g,s.r,mid,y-size/2-rsize/2-2,rsize,rcol||col); x+=ws[i]; });
+}
+function rubyWrap(g,segs,maxW,size,rsize){
+  const lines=[]; let cur=[], cw=0;
+  segs.forEach(s=>{ g.font=size+'px '+FONT; let w=g.measureText(s.b).width; if(s.r){ g.font=rsize+'px '+FONT; w=Math.max(w,g.measureText(s.r).width); }
+    if(cw+w>maxW && cur.length){ lines.push(cur); cur=[]; cw=0; } cur.push(s); cw+=w; });
+  if(cur.length) lines.push(cur); return lines;
+}
+
 const S=CUE.starts;
 const rnd=mulberry32(2026), R=(a,b)=>a+(b-a)*rnd();
 const reduceMotion=!!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -1489,13 +1509,14 @@ function board(w,h,cw,chh,drawFn,pos,parent){
 }
 function frame(g,w,h,edge){ g.fillStyle='rgba(10,8,12,.86)'; g.fillRect(0,0,w,h); g.fillStyle=edge; g.fillRect(0,0,w,3); g.fillRect(0,h-3,w,3); g.fillRect(0,0,3,h); g.fillRect(w-3,0,3,h); }
 const titleP=board(3.4,1.7,256,128,(g,w,h)=>{ label(g,'恐怖の種',w/2,56,48,'#f1ead8'); g.fillStyle='rgba(180,16,8,.9)'; [70,96,130,150,180].forEach((x,i)=>g.fillRect(x,72,3,6+i*4)); label(g,'入場前ブリーフィング',w/2,104,16,'#aaa6b8'); },V(0,1.85,-4.6));
-const missionP=board(2.7,1.35,384,192,(g,w,h)=>{ frame(g,w,h,'#a3150f'); label(g,'M I S S I O N',w/2,30,16,'#ff5a3a'); label(g,'植物の根を切れ',w/2,84,48,'#f1ead8');
-  label(g,'中にある植物の根を見つけて、',w/2,132,16,'#d8d0c0'); label(g,'切ってきてください',w/2,154,16,'#d8d0c0'); },V(0,2.5,-3.1));
-const subP=board(2.5,0.42,768,128,()=>{},V(0,0,0),camera); subP.position.set(0,-0.34,-1.15); subP.scale.setScalar(0.42); subP.material.opacity=1; subP.material.depthTest=false; subP.renderOrder=60; subP.visible=false;
+const missionP=board(2.7,1.35,768,384,(g,w,h)=>{ frame(g,w,h,'#a3150f'); g.fillStyle='#a3150f'; g.fillRect(0,0,w,6); g.fillRect(0,h-6,w,6); g.fillRect(0,0,6,h); g.fillRect(w-6,0,6,h);
+  label(g,'M I S S I O N',w/2,46,32,'#ff5a3a'); rubyLine(g,rubySegs('[植物|しょくぶつ]の[根|ね]を[切|き]れ'),w/2,170,96,32,'#f1ead8','#ffd98a');
+  rubyLine(g,rubySegs('[中|なか]にある[植物|しょくぶつ]の[根|ね]を[見|み]つけて、'),w/2,268,32,16,'#d8d0c0','#ffd98a'); rubyLine(g,rubySegs('[切|き]ってきてください'),w/2,336,32,16,'#d8d0c0','#ffd98a'); },V(0,2.5,-3.1));
+const subP=board(2.5,0.625,768,192,()=>{},V(0,0,0),camera); subP.position.set(0,-0.33,-1.15); subP.scale.setScalar(0.42); subP.material.opacity=1; subP.material.depthTest=false; subP.renderOrder=60; subP.visible=false;
 let subText='';
-function setVRSub(t){ if(t===subText) return; subText=t; const b=subP.userData.board, g=b.canvas.getContext('2d'), w=768, h=128; g.clearRect(0,0,w,h);
-  if(t){ g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(0,0,w,h); g.font='32px '+FONT; const lines=[]; let line=''; for(const ch of t){ if(g.measureText(line+ch).width>w-40){ lines.push(line); line=ch; } else line+=ch; } if(line) lines.push(line);
-    lines.slice(0,3).forEach((l,i)=>label(g,l,w/2,h/2+(i-(Math.min(3,lines.length)-1)/2)*40,32,'#ffffff')); }
+function setVRSub(t){ if(t===subText) return; subText=t; const b=subP.userData.board, g=b.canvas.getContext('2d'), w=768, h=192; g.clearRect(0,0,w,h);
+  if(t){ const lines=rubyWrap(g,rubySegs(t),w-40,32,16).slice(0,3), LH=58; g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(0,0,w,h);
+    lines.forEach((l,i)=>rubyLine(g,l,w/2,h/2+10+(i-(lines.length-1)/2)*LH,32,16,'#ffffff','#ffd98a')); }
   b.tex.needsUpdate=true; }
 const endP=board(1.9,0.32,384,64,(g,w,h)=>{ label(g,'ボタンで、もう一度聞けます',w/2,32,16,'#f1ead8'); },V(0,1.35,-2.2));
 const helpP=board(1.0,0.5,256,128,(g,w,h)=>{ frame(g,w,h,'#5a5a66'); label(g,'赤いボタンを指して',w/2,22,16,'#ffcf4a'); label(g,'トリガーで物語が始まります',w/2,44,16,'#ffcf4a');
@@ -1606,9 +1627,13 @@ function updateScene(T,t){
   ringM.opacity=sm(S[8],S[8]+1.5,T)*(0.5+0.5*Math.sin(t*5)); coreRing.scale.setScalar(1+0.15*Math.sin(t*5));
   missionP.material.opacity=sm(S[8]-0.2,S[8]+1.2,T);
   let cur=''; S.forEach((st,i)=>{ if(T>=st-0.1 && T<st+CUE.durs[i]+0.9) cur=LINES[i]; });
-  if(renderer.xr.isPresenting){ setVRSub(cur); if($('sub').textContent) $('sub').textContent=''; } else if($('sub').textContent!==cur) $('sub').textContent=cur;
+  if(renderer.xr.isPresenting){ setVRSub(cur); setDomSub(''); } else setDomSub(cur);
   endP.material.opacity=sm(CUE.total-3,CUE.total-1.5,T);
 }
+
+window.__vrsub=t=>{ setVRSub(t); return subP.userData.board.canvas; };   // used by the screenshot tests
+let domSub=null;
+function setDomSub(t){ if(t===domSub) return; domSub=t; $('sub').innerHTML=t?rubyHTML(t):''; }
 
 /* ---------- narration and the story clock ---------- */
 const narr=new Audio(window.__NARRATION||'narration.mp3'); narr.preload='auto';
@@ -1796,7 +1821,7 @@ function vrUpdate(dt){
     const gp=u.src && u.src.gamepad; if(!gp) return;
     const ax=gp.axes[2]||0, ay=gp.axes[3]||0;
     if(u.src.handedness==='left'){ if(Math.hypot(ax,ay)>0.15){ const f=headForward(), rx=-f.z, rz=f.x; dolly.position.x+=(f.x*-ay+rx*ax)*1.6*dt; dolly.position.z+=(f.z*-ay+rz*ax)*1.6*dt; } }
-    else { if(Math.abs(ax)>0.7 && !u.turned){ turnBy(ax>0?-Math.PI/6:Math.PI/6); u.turned=true; } if(Math.abs(ax)<0.3) u.turned=false; }
+    else if(Math.abs(ax)>0.2){ turnBy(-Math.sign(ax)*((Math.abs(ax)-0.2)/0.8)*1.4*dt); }   // turn smoothly, faster the further the stick is pushed (up to about 80°/s)
   });
   story.setHover(anyBtn);
   marker.visible=!!shown; if(shown){ marker.position.set(shown.x,0.03,shown.z); marker.material.color.set(shownOk?0x8fd3ff:0xff4030); }
