@@ -1659,6 +1659,7 @@ return {
   setHover(h){ hover=h; },
   set onState(f){ onState=f; },
   get playing(){ return playing; },
+  get ended(){ return ended; },
   update(t){
     updateScene(nowT(),t);
     drawLabel(playing ? '■ 再生中…' : (ended ? '▶ もう一度聞く' : '▶ 物語を聞く'));
@@ -1692,6 +1693,42 @@ const startSign=(function(){
   } };
 })();
 function frame(g,w,h,edge){ g.fillStyle='rgba(10,8,12,.86)'; g.fillRect(0,0,w,h); g.fillStyle=edge; g.fillRect(0,0,w,3); g.fillRect(0,h-3,w,3); g.fillRect(0,0,3,h); g.fillRect(w-3,0,3,h); }
+
+/* ================= route: numbered markers (1 廃棄場, 2 お化け屋敷) and arrows from 1 to 2 after the story ================= */
+const route=(function(){
+  function marker(n,name,sub,x,y,z){
+    const b=textBoard(1,1.25,128,160,(g,w,h)=>{
+      g.fillStyle='#000'; g.fillRect(24,4,80,80); g.fillStyle='#c8180c'; g.fillRect(28,8,72,72); g.fillStyle='#e8402e'; g.fillRect(28,8,72,6); g.fillStyle='#7a0c06'; g.fillRect(28,74,72,6);
+      label(g,String(n),64,46,64,'#ffffff');
+      g.fillStyle='rgba(10,8,12,.86)'; g.fillRect(4,92,120,46); label(g,name,64,108,16,'#ffffff'); label(g,sub,64,128,16,'#ffcf4a');
+      g.fillStyle='#ffcf4a'; for(let i=0;i<8;i++) g.fillRect(56+i,142+i,16-i*2,1);   // little pointer below
+    });
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(1.04,1.3),new THREE.MeshBasicMaterial({map:b.tex,transparent:true,depthWrite:false,fog:false}));
+    m.position.set(x,y,z); m.renderOrder=23; scene.add(m); m.userData.y=y; return m;
+  }
+  const m1=marker(1,'廃棄場','物語を聞く',7.75,2.5,3.6);
+  const m2=marker(2,'お化け屋敷','ここから本番',2,3.35,7.5);
+  // the route along the gravel path: dump → greenhouse door → haunted house door
+  const P=[[7.5,4.4],[7.5,12.5],[-0.5,12.5],[-0.5,9.2],[1.7,8.0]];
+  const tex=(()=>{ const c=document.createElement('canvas'); c.width=c.height=16; const g=c.getContext('2d');
+    const A=[[7,1],[8,1],[6,2],[7,2],[8,2],[9,2],[5,3],[6,3],[9,3],[10,3],[4,4],[5,4],[10,4],[11,4],[3,5],[4,5],[11,5],[12,5],[2,6],[3,6],[12,6],[13,6]];
+    g.fillStyle='#000'; A.forEach(([x,y])=>{ g.fillRect(x-1,y,3,3); }); g.fillStyle='#ffcf4a'; A.forEach(([x,y])=>g.fillRect(x,y+1,1,1)); g.fillStyle='#fff1a8'; A.forEach(([x,y])=>g.fillRect(x,y,1,1));
+    A.forEach(([x,y])=>{ g.fillStyle='#000'; g.fillRect(x-1,y+6,3,3); g.fillStyle='#ffcf4a'; g.fillRect(x,y+7,1,1); g.fillStyle='#fff1a8'; g.fillRect(x,y+6,1,1); });
+    const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; return t; })();
+  const geo=new THREE.PlaneGeometry(0.7,0.7), arrows=[]; let dist=0;
+  for(let i=0;i<P.length-1;i++){ const [ax,az]=P[i], [bx,bz]=P[i+1], L=Math.hypot(bx-ax,bz-az), dx=(bx-ax)/L, dz=(bz-az)/L;
+    for(let d=(i?0.55:0);d<L-0.3;d+=1.1){ const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:0,depthWrite:false,fog:false}));
+      m.rotation.order='YXZ'; m.rotation.set(-Math.PI/2,Math.atan2(-dx,-dz),0); m.position.set(ax+dx*d,0.16,az+dz*d);   // floats a little so the vines never cover it m.renderOrder=6; m.visible=false; scene.add(m); arrows.push({m,s:dist+d}); }
+    dist+=L; }
+  const vC=V(0,0,0); let k=0;
+  return { update(t,dt){
+    camera.getWorldPosition(vC);
+    [m1,m2].forEach((m,i)=>{ m.rotation.y=Math.atan2(vC.x-m.position.x,vC.z-m.position.z); m.position.y=m.userData.y+Math.sin(t*2+i*1.7)*0.06; });
+    m1.visible=!story.playing;   // keep the dump clear while the story plays
+    k+=((story.ended?1:0)-k)*Math.min(1,dt*2);
+    arrows.forEach(a=>{ const wave=0.55+0.45*Math.max(0,Math.sin(a.s*0.9-t*5)); a.m.visible=k>0.01; a.m.material.opacity=k*wave; a.m.scale.setScalar(0.9+0.15*wave); });
+  } };
+})();
 
 /* ================= walls you cannot pass through (floor plan boxes [x0,z0,x1,z1]) ================= */
 const SOLID=[
@@ -1837,7 +1874,7 @@ function tick(){
   if(renderer.xr.isPresenting) vrUpdate(dt); else { flyUpdate(dt); controls.update(); }
   lanterns.forEach(o=>{ if(o.l) o.l.intensity=o.base*(0.85+0.15*Math.sin(t*7+o.ph)*Math.sin(t*2.3+o.ph)); });
   clouds.forEach(c=>{ c.position.x+=dt*0.6; if(c.position.x>130) c.position.x=-130; });
-  story.update(t); startSign.update(t,dt);
+  story.update(t); startSign.update(t,dt); route.update(t,dt);
   renderer.render(scene,camera);
 }
 renderer.setAnimationLoop(tick);

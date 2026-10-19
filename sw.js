@@ -1,6 +1,6 @@
 // 恐怖の種 クラフト: keeps the one-file page so it opens without a network.
 // Network first; when the network fails (offline) or the page is gone (404 after the repo turns private), the saved copy is served.
-const C='kyofu-craft-v4';
+const C='kyofu-craft-v5';
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html'])).then(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{
