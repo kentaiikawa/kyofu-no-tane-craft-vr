@@ -1715,10 +1715,11 @@ const route=(function(){
     g.fillStyle='#000'; A.forEach(([x,y])=>{ g.fillRect(x-1,y,3,3); }); g.fillStyle='#ffcf4a'; A.forEach(([x,y])=>g.fillRect(x,y+1,1,1)); g.fillStyle='#fff1a8'; A.forEach(([x,y])=>g.fillRect(x,y,1,1));
     A.forEach(([x,y])=>{ g.fillStyle='#000'; g.fillRect(x-1,y+6,3,3); g.fillStyle='#ffcf4a'; g.fillRect(x,y+7,1,1); g.fillStyle='#fff1a8'; g.fillRect(x,y+6,1,1); });
     const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; return t; })();
+  // arrows float a little above the ground so the vines never cover them
   const geo=new THREE.PlaneGeometry(0.7,0.7), arrows=[]; let dist=0;
   for(let i=0;i<P.length-1;i++){ const [ax,az]=P[i], [bx,bz]=P[i+1], L=Math.hypot(bx-ax,bz-az), dx=(bx-ax)/L, dz=(bz-az)/L;
     for(let d=(i?0.55:0);d<L-0.3;d+=1.1){ const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:0,depthWrite:false,fog:false}));
-      m.rotation.order='YXZ'; m.rotation.set(-Math.PI/2,Math.atan2(-dx,-dz),0); m.position.set(ax+dx*d,0.16,az+dz*d);   // floats a little so the vines never cover it m.renderOrder=6; m.visible=false; scene.add(m); arrows.push({m,s:dist+d}); }
+      m.rotation.order='YXZ'; m.rotation.set(-Math.PI/2,Math.atan2(-dx,-dz),0); m.position.set(ax+dx*d,0.16,az+dz*d); m.renderOrder=6; m.visible=false; scene.add(m); arrows.push({m,s:dist+d}); }
     dist+=L; }
   const vC=V(0,0,0); let k=0;
   return { update(t,dt){
