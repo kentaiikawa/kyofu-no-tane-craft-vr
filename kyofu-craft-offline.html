@@ -47,7 +47,7 @@ h1 span{color:var(--red)}
 .card .actions{flex-wrap:nowrap}
 .sub{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(110px + env(safe-area-inset-bottom,0px));z-index:4;width:min(44rem,calc(100% - 32px));margin:0;
   text-align:center;font-size:clamp(1rem,2.3vw,1.3rem);line-height:1.7;color:#fff;text-shadow:2px 2px 0 #000,0 0 6px #000;pointer-events:none;text-wrap:balance}
-.sub{line-height:2.1} .sub rt{font-size:.55em;color:#ffd98a;letter-spacing:0}
+.sub{line-height:2.1} .sub rt{font-size:.55em;color:#ffd98a;letter-spacing:0} .sub .ph{display:inline-block}   /* lines break only between phrases (after 、 or 。) */
 @media (max-width:560px){ .card .actions{gap:6px} .card .actions .btn{font-size:12px;padding:7px 8px 8px;letter-spacing:0;white-space:nowrap} .card-toggle{margin-left:0} h1{font-size:28px} .lede{font-size:12px;line-height:1.7} .card{padding:12px 14px;max-height:60vh;overflow:auto} .card.closed{padding:10px 12px;max-height:none;overflow:visible} .views .btn{font-size:12px;padding:6px 8px 7px} }
 @media (max-height:480px){ .card{max-height:70vh;overflow:auto} }
 </style>
@@ -1376,17 +1376,23 @@ const LINES=['[恐怖|きょうふ]の[種|たね]。','ここは、[規格外|�
   'これ[以上|いじょう]の[侵食|しんしょく]、[被害|ひがい]を[防|ふせ]ぐために、[中|なか]にある[植物|しょくぶつ]の[根|ね]を[切|き]ってきてください。'];
 // split a line into pieces: {b:'漢字', r:'よみ'} or {b:'かな'} (one character each, so lines can wrap there)
 function rubySegs(t){ const out=[]; const re=/\[([^|\]]+)\|([^\]]+)\]|([^\[])/g; let m; while((m=re.exec(t))) out.push(m[3]!==undefined?{b:m[3]}:{b:m[1],r:m[2]}); return out; }
-function rubyHTML(t){ return rubySegs(t).map(s=>s.r?'<ruby>'+s.b+'<rt>'+s.r+'</rt></ruby>':s.b).join(''); }
+function rubyHTML(t){ return rubyPhrases(rubySegs(t)).map(p=>'<span class="ph">'+p.map(s=>s.r?'<ruby>'+s.b+'<rt>'+s.r+'</rt></ruby>':s.b).join('')+'</span>').join(''); }
+// group pieces into phrases that end at 、 or 。 (a run like 。。。 stays with its phrase)
+function rubyPhrases(segs){ const P=/^[、。]$/, out=[]; let cur=[];
+  segs.forEach((s,i)=>{ cur.push(s); const nx=segs[i+1]; if(P.test(s.b) && !(nx && P.test(nx.b))){ out.push(cur); cur=[]; } });
+  if(cur.length) out.push(cur); return out; }
 // draw one ruby line centered at cx; base text sits on y (middle), readings above it
 function rubyLine(g,segs,cx,y,size,rsize,col,rcol){
   g.font=size+'px '+FONT; const ws=segs.map(s=>{ const bw=g.measureText(s.b).width; if(!s.r) return bw; g.font=rsize+'px '+FONT; const rw=g.measureText(s.r).width; g.font=size+'px '+FONT; return Math.max(bw,rw); });
   let x=cx-ws.reduce((a,b)=>a+b,0)/2;
   segs.forEach((s,i)=>{ const mid=x+ws[i]/2; label(g,s.b,mid,y,size,col); if(s.r) label(g,s.r,mid,y-size/2-rsize/2-2,rsize,rcol||col); x+=ws[i]; });
 }
+// lay out pieces into lines, breaking only after 、 or 。; returns null if a phrase alone is wider than maxW
 function rubyWrap(g,segs,maxW,size,rsize){
+  const segW=s=>{ g.font=size+'px '+FONT; let w=g.measureText(s.b).width; if(s.r){ g.font=rsize+'px '+FONT; w=Math.max(w,g.measureText(s.r).width); } return w; };
   const lines=[]; let cur=[], cw=0;
-  segs.forEach(s=>{ g.font=size+'px '+FONT; let w=g.measureText(s.b).width; if(s.r){ g.font=rsize+'px '+FONT; w=Math.max(w,g.measureText(s.r).width); }
-    if(cw+w>maxW && cur.length){ lines.push(cur); cur=[]; cw=0; } cur.push(s); cw+=w; });
+  for(const p of rubyPhrases(segs)){ const pw=p.reduce((a,s)=>a+segW(s),0); if(pw>maxW) return null;
+    if(cw+pw>maxW && cur.length){ lines.push(cur); cur=[]; cw=0; } cur.push(...p); cw+=pw; }
   if(cur.length) lines.push(cur); return lines;
 }
 
@@ -1522,8 +1528,9 @@ const missionP=board(2.7,1.35,768,384,(g,w,h)=>{ frame(g,w,h,'#a3150f'); g.fillS
 const subP=board(2.5,0.625,768,192,()=>{},V(0,0,0),camera); subP.position.set(0,-0.33,-1.15); subP.scale.setScalar(0.42); subP.material.opacity=1; subP.material.depthTest=false; subP.renderOrder=60; subP.visible=false;
 let subText='';
 function setVRSub(t){ if(t===subText) return; subText=t; const b=subP.userData.board, g=b.canvas.getContext('2d'), w=768, h=192; g.clearRect(0,0,w,h);
-  if(t){ const lines=rubyWrap(g,rubySegs(t),w-40,32,16).slice(0,3), LH=58; g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(0,0,w,h);
-    lines.forEach((l,i)=>rubyLine(g,l,w/2,h/2+10+(i-(lines.length-1)/2)*LH,32,16,'#ffffff','#ffd98a')); }
+  if(t){ let size=32, lines=null; for(size of [32,28,26,24]){ lines=rubyWrap(g,rubySegs(t),w-40,size,16); if(lines && lines.length<=3) break; }   // shrink the text a little when a phrase is too long for one line
+    lines=(lines||[rubySegs(t)]).slice(0,3); const LH=size+26; g.fillStyle='rgba(0,0,0,.6)'; g.fillRect(0,0,w,h);
+    lines.forEach((l,i)=>rubyLine(g,l,w/2,h/2+10+(i-(lines.length-1)/2)*LH,size,16,'#ffffff','#ffd98a')); }
   b.tex.needsUpdate=true; }
 const endP=board(1.9,0.32,384,64,(g,w,h)=>{ label(g,'ボタンで、もう一度聞けます',w/2,32,16,'#f1ead8'); },V(0,1.35,-2.2));
 const helpP=board(1.0,0.5,256,128,(g,w,h)=>{ frame(g,w,h,'#5a5a66'); label(g,'赤いボタンを指して',w/2,22,16,'#ffcf4a'); label(g,'トリガーで物語が始まります',w/2,44,16,'#ffcf4a');
