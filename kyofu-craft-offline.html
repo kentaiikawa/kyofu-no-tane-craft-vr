@@ -40,10 +40,16 @@ h1 span{color:var(--red)}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
 .note{margin:10px 0 0;font-size:12px;line-height:1.7;color:var(--muted)}
 .card.mini h1,.card.mini .lede,.card.mini .kicker,.card.mini .note{display:none}
+.card.closed h1,.card.closed .lede,.card.closed .kicker,.card.closed .note{display:none}
+.card.closed{width:auto;padding:10px 12px}
+.card .actions .btn{padding:8px 12px 9px;font-size:14px}
+.card-toggle{margin-left:auto}
+.card .actions{flex-wrap:nowrap}
 .sub{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(110px + env(safe-area-inset-bottom,0px));z-index:4;width:min(44rem,calc(100% - 32px));margin:0;
   text-align:center;font-size:clamp(1rem,2.3vw,1.3rem);line-height:1.7;color:#fff;text-shadow:2px 2px 0 #000,0 0 6px #000;pointer-events:none;text-wrap:balance}
 .sub{line-height:2.1} .sub rt{font-size:.55em;color:#ffd98a;letter-spacing:0}
-@media (max-width:560px){ h1{font-size:36px} .lede{font-size:13px} }
+@media (max-width:560px){ .card .actions{gap:6px} .card .actions .btn{font-size:12px;padding:7px 8px 8px;letter-spacing:0;white-space:nowrap} .card-toggle{margin-left:0} h1{font-size:28px} .lede{font-size:12px;line-height:1.7} .card{padding:12px 14px;max-height:60vh;overflow:auto} .card.closed{padding:10px 12px;max-height:none;overflow:visible} .views .btn{font-size:12px;padding:6px 8px 7px} }
+@media (max-height:480px){ .card{max-height:70vh;overflow:auto} }
 </style>
 </head>
 <body>
@@ -59,6 +65,7 @@ h1 span{color:var(--red)}
   <div class="actions">
     <button class="btn primary" id="storyBtn">▶ 物語を再生</button>
     <button class="btn" id="vrBtn">VRで見る</button>
+    <button class="btn card-toggle" id="cardToggle" aria-expanded="true" aria-controls="card">▼ 隠す</button>
   </div>
   <p class="note" id="vrNote" hidden></p>
 </section>
@@ -1310,7 +1317,7 @@ put('darkPlanks',1,0,HZ1); put('darkPlanks',2,0,HZ1);       // behind the door
 for(let z=HZ0-1;z<=HZ1+1;z++){ put('roof',HX0,3,z); put('roof',HX1,3,z); put('roof',1,4,z); put('roof',2,4,z); }
 put('darkPlanks',1,3,HZ0); put('darkPlanks',2,3,HZ0); put('darkPlanks',1,3,HZ1); put('darkPlanks',2,3,HZ1);
 // pumpkins: jack-o'-lanterns beside both doors
-put('jackS',-3,0,GZ1+1); put('jackS',1,0,GZ1+1); put('pumpkin',-4,0,GZ1+1);
+put('jackS',-3,0,GZ1+1); put('jackS',1,0,GZ1+1); put('pumpkin',-4,0,GZ1+1); put('pumpkin',2,0,GZ1+1);
 put('jackS',0,0,HZ1+1); put('jackS',3,0,HZ1+1); put('pumpkin',3,1,HZ1+1);
 // trees outside
 function tree(x,z,h,r,dead){ for(let y=0;y<h;y++) put('oakLog',x,y,z); if(dead) return; const rr=mulberry32(x*31+z);
@@ -1341,7 +1348,7 @@ const lanterns=[];
 function lantern(x,y,z,light,hang){ const m=boxMesh(0.36,0.42,0.36,matFor('lantern'),x,y,z); const cap=boxMesh(0.22,0.08,0.22,new THREE.MeshLambertMaterial({color:0x2a2a30}),x,y+0.25,z);
   if(hang) boxMesh(0.05,hang,0.05,new THREE.MeshLambertMaterial({color:0x2a2a30}),x,y+0.25+hang/2,z);
   let l=null; if(light){ l=new THREE.PointLight(0xffa850,light,10,2); l.position.set(x,y,z); scene.add(l); } lanterns.push({m,l,base:light,ph:rnd()*6}); }
-lantern(-3.5,1.21,GZ1+1.5,0); lantern(0.5,1.21,GZ1+1.5,1.25);
+lantern(-3.5,1.21,GZ1+1.5,0); lantern(2.5,1.21,GZ1+1.5,1.25);   // each sits on the outer pumpkin block of its side
 lantern(-2.5,3.0,4.5,1.0,0.75); lantern(-2.5,3.0,-4.5,0.9,0.75); lantern(0.5,1.21,HZ1+1.5,0);
 // chili planters: two rows on the left, the plants grow out of slab planters
 const planterMats=[matFor('planterSide'),matFor('planterSide'),matFor('farmland'),matFor('farmland'),matFor('planterSide'),matFor('planterSide')];
@@ -1737,7 +1744,7 @@ const SOLID=[
   [GX0,GZ1,-2,GZ1+1],[1,GZ1,GX1+1,GZ1+1],                                  // greenhouse front, door open (x -2..1)
   [HX0,HZ0,HX1+1,HZ1+1],                                                   // haunted house (closed)
   [-4,-8,-3,5],[-2,-8,-1,5],                                               // chili planters
-  [-3,GZ1+1,-2,GZ1+2],[1,GZ1+1,2,GZ1+2],[-4,GZ1+1,-3,GZ1+2],[0,HZ1+1,1,HZ1+2],[3,HZ1+1,4,HZ1+2]   // pumpkins
+  [-3,GZ1+1,-2,GZ1+2],[1,GZ1+1,2,GZ1+2],[-4,GZ1+1,-3,GZ1+2],[2,GZ1+1,3,GZ1+2],[0,HZ1+1,1,HZ1+2],[3,HZ1+1,4,HZ1+2]   // pumpkins
 ];
 const BODY_R=0.15;
 function pushOut(x,z,r){
@@ -1775,6 +1782,11 @@ renderer.domElement.addEventListener('pointerdown',()=>story.audioInit(),{once:t
 const storyBtn=$('storyBtn'), card=$('card');
 story.onState=()=>{ storyBtn.textContent=story.playing?'■ 止める':'▶ 物語を再生'; card.classList.toggle('mini',story.playing); };
 storyBtn.addEventListener('click',()=>{ if(story.playing){ story.stop(); return; } go(4); story.start(); });
+// the description can be shown or hidden; phones and short landscape screens start with it hidden
+const cardToggle=$('cardToggle');
+function setCardOpen(open){ card.classList.toggle('closed',!open); cardToggle.setAttribute('aria-expanded',String(open)); cardToggle.textContent=open?'▼ 隠す':'ⓘ 説明'; }
+cardToggle.addEventListener('click',()=>setCardOpen(card.classList.contains('closed')));
+setCardOpen(!(window.matchMedia && matchMedia('(max-width:560px), (max-height:480px)').matches));
 
 /* ================= VR (WebXR) ================= */
 const rayGeo=new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,0,-1)]);
