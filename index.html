@@ -1819,7 +1819,7 @@ const rayGeo=new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,0,-1)]);
 const marker=new THREE.Mesh(new THREE.RingGeometry(0.16,0.22,4).rotateX(-Math.PI/2).rotateY(Math.PI/4),new THREE.MeshBasicMaterial({color:0x8fd3ff,depthTest:false,transparent:true,opacity:.9}));
 marker.renderOrder=21; marker.visible=false; scene.add(marker);
 // movement speeds, kept slow to avoid motion sickness
-const WALK_SPEED=0.7, TURN_SPEED=0.6, SWING_MAX=1.2, PULL_GAIN=1.0;   // m/s, rad/s (about 35°/s), m/s, hand-to-body ratio
+const WALK_SPEED=0.7, TURN_SPEED=0.35, SWING_MAX=1.2, PULL_GAIN=1.0;   // m/s, rad/s (about 20°/s), m/s, hand-to-body ratio
 let armSwinging=false, swingSpeed=0;
 const ctrls=[0,1].map(k=>{
   const c=renderer.xr.getController(k);
@@ -1899,7 +1899,7 @@ function vrUpdate(dt){
     const gp=u.src && u.src.gamepad; if(!gp) return;
     const ax=gp.axes[2]||0, ay=gp.axes[3]||0;
     if(u.src.handedness==='left'){ const mag=Math.hypot(ax,ay); if(mag>0.15){ const f=headForward(), rx=-f.z, rz=f.x, g=WALK_SPEED*Math.min(1,(mag-0.15)/0.85)/mag; dolly.position.x+=(f.x*-ay+rx*ax)*g*dt; dolly.position.z+=(f.z*-ay+rz*ax)*g*dt; } }
-    else if(Math.abs(ax)>0.2){ const k=(Math.abs(ax)-0.2)/0.8; turnBy(-Math.sign(ax)*k*k*TURN_SPEED*dt); }   // turn smoothly; eases in, up to about 35°/s
+    else if(Math.abs(ax)>0.2){ const k=(Math.abs(ax)-0.2)/0.8; turnBy(-Math.sign(ax)*k*k*TURN_SPEED*dt); }   // turn smoothly; eases in, up to about 20°/s
   });
   story.setHover(anyBtn);
   marker.visible=!!shown; if(shown){ marker.position.set(shown.x,0.03,shown.z); marker.material.color.set(shownOk?0x8fd3ff:0xff4030); }
