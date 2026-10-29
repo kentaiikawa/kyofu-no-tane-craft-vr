@@ -1533,7 +1533,7 @@ function setVRSub(t){ if(t===subText) return; subText=t; const b=subP.userData.b
     lines.forEach((l,i)=>rubyLine(g,l,w/2,h/2+10+(i-(lines.length-1)/2)*LH,size,16,'#ffffff','#ffd98a')); }
   b.tex.needsUpdate=true; }
 const endP=board(1.9,0.32,384,64,(g,w,h)=>{ label(g,'ボタンで、もう一度聞けます',w/2,32,16,'#f1ead8'); },V(0,1.35,-2.2));
-const helpP=board(1.0,0.5,256,128,(g,w,h)=>{ frame(g,w,h,'#5a5a66'); label(g,'赤いボタンを指して',w/2,22,16,'#ffcf4a'); label(g,'トリガーで物語が始まります',w/2,44,16,'#ffcf4a');
+const helpP=board(1.25,0.5,320,128,(g,w,h)=>{ frame(g,w,h,'#5a5a66'); label(g,'A・B・X・Yボタンで',w/2,22,16,'#ffcf4a'); label(g,'物語が始まります',w/2,44,16,'#ffcf4a');
   label(g,'トリガー：指した床へワープ',w/2,74,16,'#d8d0c0'); label(g,'左スティック：歩く',w/2,94,16,'#d8d0c0'); label(g,'右スティック：向きを変える',w/2,114,16,'#d8d0c0'); },V(1.75,1.35,-0.75));
 helpP.rotation.set(0,Math.atan2(-1.75,0.75),0);
 const flash=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,12),new THREE.MeshBasicMaterial({color:0x8a0000,transparent:true,opacity:0,side:THREE.BackSide,depthTest:false,fog:false})); flash.renderOrder=999; camera.add(flash);
@@ -1543,6 +1543,7 @@ const btnGroup=new THREE.Group(); btnGroup.position.set(1.1,0,-0.25); btnGroup.r
 boxMesh(.5,.9,.5,matFor('cobble'),0,.45,0,btnGroup); boxMesh(.56,.08,.56,matFor('stone'),0,.94,0,btnGroup);
 const btnM=new THREE.MeshLambertMaterial({color:0xc8180c,emissive:0x400000});
 const button=boxMesh(.26,.1,.26,btnM,0,1.03,0,btnGroup);
+const btnHit=boxMesh(.7,.62,.7,new THREE.MeshBasicMaterial({visible:false}),0,1.12,0,btnGroup);   // easy-to-hit area for the controller ray
 const btnLabel=board(0.66,0.17,128,32,()=>{},V(0,1.34,0),btnGroup); btnLabel.material.opacity=1;
 let labelText='';
 function drawLabel(t){ if(t===labelText) return; labelText=t; const b=btnLabel.userData.board, g=b.canvas.getContext('2d'); g.clearRect(0,0,128,32); frame(g,128,32,'#c8180c'); label(g,t,64,16,16,'#f1ead8'); b.tex.needsUpdate=true; }
@@ -1684,7 +1685,7 @@ function nowT(){
 }
 let onState=()=>{};
 const rc=new THREE.Raycaster(); let hover=false;
-function rayHit(o,d){ rc.set(o,d); rc.far=8; return rc.intersectObject(button,false).length>0 || rc.intersectObject(btnLabel,false).length>0; }
+function rayHit(o,d){ rc.set(o,d); rc.far=8; return rc.intersectObject(btnHit,false).length>0 || rc.intersectObject(btnLabel,false).length>0; }
 function unlock(){ audioInit(); if(playing) return; const p=narr.play(); if(p && p.then) p.then(()=>{ if(!playing){ narr.pause(); narr.currentTime=0; } }).catch(()=>{}); }
 return {
   start, stop, rayHit, unlock, audioInit, sfx,
@@ -1897,6 +1898,9 @@ function vrUpdate(dt){
     if(u.hit){ const h=headWorld(); u.ok=canReach(h.x,h.z,u.hit.x,u.hit.z); }
     if(u.hit && (!shown || (u.src && u.src.handedness==='right'))){ shown=u.hit; shownOk=u.ok; }
     const gp=u.src && u.src.gamepad; if(!gp) return;
+    const face=[4,5].some(i=>gp.buttons[i] && gp.buttons[i].pressed);
+    if(face && !u.facePrev && !story.playing) story.start();
+    u.facePrev=face;
     const ax=gp.axes[2]||0, ay=gp.axes[3]||0;
     if(u.src.handedness==='left'){ const mag=Math.hypot(ax,ay); if(mag>0.15){ const f=headForward(), rx=-f.z, rz=f.x, g=WALK_SPEED*Math.min(1,(mag-0.15)/0.85)/mag; dolly.position.x+=(f.x*-ay+rx*ax)*g*dt; dolly.position.z+=(f.z*-ay+rz*ax)*g*dt; } }
     else if(Math.abs(ax)>0.2){ const k=(Math.abs(ax)-0.2)/0.8; turnBy(-Math.sign(ax)*k*k*TURN_SPEED*dt); }   // turn smoothly; eases in, up to about 20°/s
