@@ -1537,8 +1537,8 @@ function setVRSub(t){ if(t===subText) return; subText=t; const b=subP.userData.b
     lines.forEach((l,i)=>rubyLine(g,l,w/2,h/2+10+(i-(lines.length-1)/2)*LH,size,16,'#ffffff','#ffd98a')); }
   b.tex.needsUpdate=true; }
 const endP=board(1.9,0.32,384,64,(g,w,h)=>{ label(g,'ボタンで、もう一度聞けます',w/2,32,16,'#f1ead8'); },V(0,1.35,-2.2));
-const helpP=board(1.25,0.5,320,128,(g,w,h)=>{ frame(g,w,h,'#5a5a66'); label(g,'A・B・X・Yボタンで',w/2,22,16,'#ffcf4a'); label(g,'物語が始まります',w/2,44,16,'#ffcf4a');
-  label(g,'トリガー：指した床へワープ',w/2,74,16,'#d8d0c0'); label(g,'左スティック：歩く',w/2,94,16,'#d8d0c0'); label(g,'右スティック：向きを変える',w/2,114,16,'#d8d0c0'); },V(1.75,1.35,-0.75));
+const helpP=board(1.25,0.6,320,154,(g,w,h)=>{ frame(g,w,h,'#5a5a66'); label(g,'A・B・X・Yボタンで',w/2,22,16,'#ffcf4a'); label(g,'物語が始まります',w/2,44,16,'#ffcf4a');
+  label(g,'トリガー：指した床へワープ',w/2,74,16,'#d8d0c0'); label(g,'左スティック：歩く',w/2,94,16,'#d8d0c0'); label(g,'右スティック：向きを変える',w/2,114,16,'#d8d0c0'); label(g,'Aボタン：①（廃棄場）に戻る',w/2,138,16,'#9fd3ff'); },V(1.75,1.35,-0.75));
 helpP.rotation.set(0,Math.atan2(-1.75,0.75),0);
 const flash=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,12),new THREE.MeshBasicMaterial({color:0x8a0000,transparent:true,opacity:0,side:THREE.BackSide,depthTest:false,fog:false})); flash.renderOrder=999; camera.add(flash);
 
@@ -1872,6 +1872,11 @@ function teleportTo(x,z){ const h=headWorld(); dolly.position.x+=x-h.x; dolly.po
 function turnBy(a){ const h=headWorld().clone(); dolly.position.sub(h).applyAxisAngle(UP,a).add(h); dolly.rotation.y+=a; }
 function keepOutOfWalls(){ const h=headWorld(); const [nx,nz]=pushOut(h.x,h.z,BODY_R); dolly.position.x+=nx-h.x; dolly.position.z+=nz-h.z; }
 const START={p:[7.5,2.5],look:[10.9,2.5]};
+// stand at spot 1 (the dump) facing the plant; a short fade from black hides the jump
+const blink=new THREE.Mesh(new THREE.SphereGeometry(0.25,16,12),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0,side:THREE.BackSide,depthTest:false,fog:false}));
+blink.renderOrder=1000; blink.visible=false; camera.add(blink); let blinkK=0;
+function goStart(fade){ const dx=START.look[0]-START.p[0], dz=START.look[1]-START.p[1]; turnBy(Math.atan2(-dx,-dz)-headYaw()); teleportTo(...START.p);
+  if(fade){ blinkK=1; blink.material.opacity=1; blink.visible=true; } }
 let vrFrames=0, vrPending=false;
 const vrBtn=$('vrBtn'), vrNote=$('vrNote');
 function note(t){ vrNote.textContent=t; vrNote.hidden=false; }
@@ -1891,7 +1896,8 @@ vrBtn.addEventListener('click',async()=>{
 function onVREnd(){ marker.visible=false; dolly.position.set(0,0,0); dolly.rotation.set(0,0,0); card.hidden=false; $('views').hidden=false; go(4,true); resize(); }
 function vrUpdate(dt){
   vrFrames++;
-  if(vrPending && vrFrames>3){ const dx=START.look[0]-START.p[0], dz=START.look[1]-START.p[1]; turnBy(Math.atan2(-dx,-dz)-headYaw()); teleportTo(...START.p); vrPending=false; }
+  if(vrPending && vrFrames>3){ goStart(); vrPending=false; }
+  if(blinkK>0){ blinkK=Math.max(0,blinkK-dt*2.5); blink.material.opacity=blinkK; blink.visible=blinkK>0; }
   locomote(dt); updateArms();
   let shown=null, shownOk=true, anyBtn=false;
   ctrls.forEach(c=>{
@@ -1903,8 +1909,13 @@ function vrUpdate(dt){
     if(u.hit){ const h=headWorld(); u.ok=canReach(h.x,h.z,u.hit.x,u.hit.z); }
     if(u.hit && (!shown || (u.src && u.src.handedness==='right'))){ shown=u.hit; shownOk=u.ok; }
     const gp=u.src && u.src.gamepad; if(!gp) return;
-    const face=[4,5].some(i=>gp.buttons[i] && gp.buttons[i].pressed);
-    if(face && !u.facePrev && !story.playing) story.start();
+    const pressed=i=>!!(gp.buttons[i] && gp.buttons[i].pressed);
+    const face=pressed(4)||pressed(5), aBtn=u.src.handedness==='right' && pressed(4);
+    if(face && !u.facePrev){
+      const h=headWorld(), away=Math.hypot(h.x-START.p[0],h.z-START.p[1])>1.5;
+      if(aBtn && away){ goStart(true); if(story.ended) story.stop(); }   // A: back to spot 1; after the story, reset it for the next person
+      else if(!story.playing) story.start();                             // otherwise A/B/X/Y start the story
+    }
     u.facePrev=face;
     const ax=gp.axes[2]||0, ay=gp.axes[3]||0;
     if(u.src.handedness==='left'){ const mag=Math.hypot(ax,ay); if(mag>0.15){ const f=headForward(), rx=-f.z, rz=f.x, g=WALK_SPEED*Math.min(1,(mag-0.15)/0.85)/mag; dolly.position.x+=(f.x*-ay+rx*ax)*g*dt; dolly.position.z+=(f.z*-ay+rz*ax)*g*dt; } }
@@ -1928,7 +1939,7 @@ function tick(){
   renderer.render(scene,camera);
 }
 renderer.setAnimationLoop(tick);
-window.__craft={go,story,camera,controls};
+window.__craft={go,story,camera,controls,goStart};
 // keep the page in the browser so it opens again without a network (GitHub Pages only)
 if('serviceWorker' in navigator && /github\.io$|^127\.0\.0\.1$|^localhost$/.test(location.hostname)){
   navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{
