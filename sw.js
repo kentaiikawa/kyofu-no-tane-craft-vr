@@ -1,7 +1,7 @@
 // 恐怖の種 クラフト: keeps the one-file page so it opens without a network.
 // Online: always fetch the latest page (no-cache revalidates past the browser's HTTP cache), then save it.
 // Offline, or once the page is gone (404 after the repo turns private): the saved copy is served.
-const C='kyofu-craft-v18';
+const C='kyofu-craft-v19';
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(C).then(c=>c.addAll([new Request('./',{cache:'no-cache'}),new Request('./index.html',{cache:'no-cache'})])).then(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C && /^kyofu-craft-v\d+$/.test(k)).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{

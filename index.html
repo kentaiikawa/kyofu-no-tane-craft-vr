@@ -1135,7 +1135,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.75));
 renderer.xr.enabled=true; renderer.xr.setReferenceSpaceType('local-floor');
 stageEl.appendChild(renderer.domElement);
 const FONT='"DotGothic16","Hiragino Sans","Yu Gothic",sans-serif';
-const BUILD='10/30-d';   // shown on the VR help board and the page card
+const BUILD='10/30-e';   // shown on the VR help board and the page card
 const V=(x,y,z)=>new THREE.Vector3(x,y,z), UP=V(0,1,0);
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 function strHash(s){ let h=2166136261; for(const c of s) h=Math.imul(h^c.charCodeAt(0),16777619); return h>>>0; }
@@ -1944,6 +1944,14 @@ function tick(){
 renderer.setAnimationLoop(tick);
 window.__craft={go,story,camera,controls,goStart,vrUpdate,ctrls,dolly};
 $('ver').textContent='ver '+BUILD;
+// online, a headset that opened an older saved copy finds the newer build (version.txt) and switches to it once
+if(/github\.io$/.test(location.hostname) && navigator.onLine!==false){
+  fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(v=>{ v=(v||'').trim();
+    if(!v || v===BUILD || v.length>20) return;
+    let tried=false; try{ tried=sessionStorage.getItem('kc-upd')===v; sessionStorage.setItem('kc-upd',v); }catch(e){}
+    if(!tried) location.replace(location.pathname+'?v='+encodeURIComponent(v));   // a new URL skips the browser's cached copy
+  }).catch(()=>{});
+}
 // keep the page in the browser so it opens again without a network (GitHub Pages only)
 if('serviceWorker' in navigator && /github\.io$|^127\.0\.0\.1$|^localhost$/.test(location.hostname)){
   navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{
